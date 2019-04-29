@@ -34,16 +34,23 @@ if exists('g:ranger_choice_file')
   endif
 endif
 
+if exists('g:ranger_command_override')
+  let s:ranger_command = g:ranger_command_override
+else
+  let s:ranger_command = 'ranger'
+endif
+
 if !exists('s:choice_file_path')
   let s:choice_file_path = '/tmp/chosenfile'
 endif
 
 if has('nvim')
-  function! OpenRangerIn(path, edit_cmd)
+  function! OpenRangerIn(path, edit_cmd, set_root)
     let currentPath = expand(a:path)
     let rangerCallback = {
           \'name': 'ranger',
           \'edit_cmd': a:edit_cmd,
+          \'setRoot': a:set_root,
           \'oldAltBuffer': bufnr('#'),
           \'oldBuffer': bufnr('%'),
           \'oldPath': expand('%')
@@ -73,6 +80,9 @@ if has('nvim')
               "set correctly the alternate buffer
               silent! execute 'buffer '. self.oldBuffer
               silent! execute 'buffer '.a:newFileBuff
+            endif
+            if self.setRoot == 1
+                cd %:p:h
             endif
           else
             "Then check if the previous buffer is a directory
@@ -107,9 +117,9 @@ if has('nvim')
     endfunction
     enew
     if isdirectory(currentPath)
-      call termopen('ranger --choosefiles=' . s:choice_file_path . ' "' . currentPath . '"', rangerCallback)
+      call termopen(s:ranger_command . ' --choosefiles=' . s:choice_file_path . ' "' . currentPath . '"', rangerCallback)
     else
-      call termopen('ranger --choosefiles=' . s:choice_file_path . ' --selectfile="' . currentPath . '"', rangerCallback)
+      call termopen(s:ranger_command . ' --choosefiles=' . s:choice_file_path . ' --selectfile="' . currentPath . '"', rangerCallback)
     endif
     startinsert
   endfunction
@@ -117,9 +127,9 @@ else
   function! OpenRangerIn(path, edit_cmd)
     let currentPath = expand(a:path)
     if isdirectory(currentPath)
-      silent exec '!ranger --choosefiles=' . s:choice_file_path . ' "' . currentPath . '"'
+      silent exec '!' . s:ranger_command . ' --choosefiles=' . s:choice_file_path . ' "' . currentPath . '"'
     else
-      silent exec '!ranger --choosefiles=' . s:choice_file_path . ' --selectfile="' . currentPath . '"'
+      silent exec '!' . s:ranger_command . ' --choosefiles=' . s:choice_file_path . ' --selectfile="' . currentPath . '"'
     endif
     if filereadable(s:choice_file_path)
       for f in readfile(s:choice_file_path)
@@ -128,6 +138,9 @@ else
       call delete(s:choice_file_path)
     endif
     redraw!
+    " reset the filetype to fix the issue that happens
+    " when opening ranger on VimEnter (with `vim .`)
+    filetype detect
   endfun
 endif
 
@@ -138,16 +151,17 @@ else
   let s:default_edit_cmd='edit '
 endif
 
-command! RangerCurrentFile call OpenRangerIn("%", s:default_edit_cmd)
-command! RangerCurrentDirectory call OpenRangerIn("%:p:h", s:default_edit_cmd)
-command! RangerWorkingDirectory call OpenRangerIn(".", s:default_edit_cmd)
+command! RangerCurrentFile call OpenRangerIn("%", s:default_edit_cmd, 0)
+command! RangerCurrentDirectory call OpenRangerIn("%:p:h", s:default_edit_cmd, 0)
+command! RangerWorkingDirectory call OpenRangerIn(".", s:default_edit_cmd, 0)
 command! Ranger RangerCurrentFile
 
 " To open the selected file in a new tab
-command! RangerCurrentFileNewTab call OpenRangerIn("%", 'tabedit ')
-command! RangerCurrentDirectoryNewTab call OpenRangerIn("%:p:h", 'tabedit ')
-command! RangerWorkingDirectoryNewTab call OpenRangerIn(".", 'tabedit ')
+command! RangerCurrentFileNewTab call OpenRangerIn("%", 'tabedit ', 0)
+command! RangerCurrentDirectoryNewTab call OpenRangerIn("%:p:h", 'tabedit ', 0)
+command! RangerWorkingDirectoryNewTab call OpenRangerIn(".", 'tabedit ', 0)
 command! RangerNewTab RangerCurrentDirectoryNewTab
+command! RangerCwd call OpenRangerIn(".", s:default_edit_cmd, 1)
 
 " For retro-compatibility
 function! OpenRanger()
@@ -160,14 +174,13 @@ function! OpenRangerOnVimLoadDir(argv_path)
 
 
   " Open Ranger
-  call OpenRangerIn(path, 'edit')
+  call OpenRangerIn(path, 'edit', 0)
 endfunction
 
 " To open ranger when vim load a directory
 if exists('g:ranger_replace_netrw') && g:ranger_replace_netrw
   augroup ReplaceNetrwByRangerVim
     autocmd VimEnter * silent! autocmd! FileExplorer
-    autocmd StdinReadPre * let s:std_in=1
     autocmd BufEnter * if isdirectory(expand("%")) | call OpenRangerOnVimLoadDir("%") | endif
   augroup END
 endif

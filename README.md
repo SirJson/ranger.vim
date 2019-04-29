@@ -1,7 +1,7 @@
 Ranger.vim
 ==========
 
-[Ranger](http://ranger.nongnu.org/) integration in vim and neovim
+[Ranger](https://ranger.github.io/) integration in vim and neovim
 
 ![Demo](./ranger.gif)
 
@@ -59,6 +59,14 @@ Ranger.vim uses a temporary file to store the path that was chosen, `/tmp/chosen
 This can be a problem if you do not have write permissions for the `/tmp` directory, for example on Android.
 There is a configuration variable for this called `g:ranger_choice_file`, this must be set to the
 path for a file that doesn't yet exist (this file is created when choosing a file and removed afterwards).
+
+### Setting a custom ranger command
+By default ranger is opened with the command `ranger` but you can set an other custom command by setting the `g:ranger_command_override` variable in your .(n)vimrc.
+
+For instance if you want to display the hidden files by default you can write:
+```
+let g:ranger_command_override = 'ranger --cmd "set show_hidden=true"'
+```
 
 ## Common issues
 
